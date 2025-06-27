@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='55' font-size='80' text-anchor='middle' dominant-baseline='middle'>🧙‍♂️</text></svg>",
   },
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
