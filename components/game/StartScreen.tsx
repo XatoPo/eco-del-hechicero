@@ -1,9 +1,12 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
-import { Book, Play, Scroll, Users } from "lucide-react"
+import { Book, Copyright, Play, Scroll, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
+import { DialogDescription } from "@radix-ui/react-dialog"
+import { Badge } from "../ui/badge"
+import { Separator } from "@radix-ui/react-context-menu"
 
 interface StartScreenProps {
   onStart: () => void
@@ -20,6 +23,7 @@ const COLORS = {
 
 export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: StartScreenProps) {
   const [backgroundMusic, setBackgroundMusic] = useState<HTMLAudioElement | null>(null)
+  const [isCreditsOpen, setIsCreditsOpen] = useState(false)
 
   useEffect(() => {
     // Create and play background music
@@ -163,7 +167,8 @@ export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: 
           BESTIARIO
         </Button>
 
-        <Dialog>
+        {/* Credits button */}
+        <Dialog open={isCreditsOpen} onOpenChange={setIsCreditsOpen}>
           <DialogTrigger asChild>
             <Button
               variant="outline"
@@ -174,52 +179,101 @@ export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: 
                 color: COLORS.UI_BORDER,
               }}
             >
-              <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              CRÉDITOS
+              <Users className="w-4 h-4 mr-2" />
+              Créditos
             </Button>
           </DialogTrigger>
-          <DialogContent
-            className="max-w-md mx-4 rounded-lg border-4"
-            style={{
-              backgroundColor: COLORS.UI_BG,
-              borderColor: COLORS.UI_BORDER,
-              color: COLORS.UI_TEXT,
-            }}
-          >
+          <DialogContent className="bg-black/90 border-amber-500/50 text-amber-100 max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-center mb-4" style={{ color: COLORS.UI_BORDER }}>
-                ⚡ CRÉDITOS ⚡
+              <DialogTitle className="text-amber-400 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Créditos del Juego
               </DialogTitle>
+              <DialogDescription className="text-amber-200/80">
+                Información sobre los desarrolladores y licencias
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 text-center">
+
+            <div className="space-y-4">
+              {/* Developers */}
               <div>
-                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.ACCENT }}>
-                  DESARROLLADORES
+                <h3 className="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                  👨‍💻 Desarrolladores
                 </h3>
-                <p className="text-sm">Flavio Sebastian Villanueva Medina</p>
-                <p className="text-sm">Gerardo Daniel Aldana Leiva</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-200">
+                      Lead Developer
+                    </Badge>
+                    <span>Flavio Sebastian Villanueva Medina</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-200">
+                      Co-Developer
+                    </Badge>
+                    <span>Gerardo Daniel Aldana Leiva</span>
+                  </div>
+                </div>
               </div>
 
+              <Separator className="bg-amber-500/30" />
+
+              {/* Technologies */}
               <div>
-                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.ACCENT }}>
-                  TECNOLOGÍAS
+                <h3 className="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                  🛠️ Tecnologías Utilizadas
                 </h3>
-                <p className="text-xs">Next.js • React • TypeScript • Phaser.js</p>
-                <p className="text-xs">Web Speech API • Tailwind CSS</p>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-200">
+                    Next.js
+                  </Badge>
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-200">
+                    React
+                  </Badge>
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-200">
+                    TypeScript
+                  </Badge>
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-200">
+                    Tailwind CSS
+                  </Badge>
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-200">
+                    Web Speech API
+                  </Badge>
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-200">
+                    Canvas API
+                  </Badge>
+                </div>
               </div>
 
+              <Separator className="bg-amber-500/30" />
+
+              {/* Copyright */}
               <div>
-                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.ACCENT }}>
-                  LICENCIA
+                <h3 className="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                  <Copyright className="w-4 h-4" />
+                  Derechos de Autor
                 </h3>
-                <p className="text-xs">© 2024 Eco del Hechicero</p>
-                <p className="text-xs">Todos los derechos reservados</p>
-                <p className="text-xs">Proyecto educativo desarrollado para</p>
-                <p className="text-xs">demostración de tecnologías web</p>
+                <div className="text-xs text-amber-200/80 space-y-1">
+                  <p>© 2025 Flavio Sebastian Villanueva Medina & Gerardo Daniel Aldana Leiva</p>
+                  <p>Todos los derechos reservados.</p>
+                  <p className="mt-2 text-amber-300">
+                    Este proyecto fue desarrollado con fines educativos y de demostración tecnológica.
+                  </p>
+                </div>
               </div>
 
-              <div className="pt-2 border-t" style={{ borderColor: COLORS.ACCENT }}>
-                <p className="text-xs opacity-75">Juego desarrollado con fines educativos</p>
+              <Separator className="bg-amber-500/30" />
+
+              {/* License */}
+              <div>
+                <h3 className="text-amber-400 font-semibold mb-2">📄 Licencia</h3>
+                <div className="text-xs text-amber-200/80 space-y-1">
+                  <p>Este software se distribuye bajo una licencia educativa.</p>
+                  <p>El uso comercial requiere autorización expresa de los autores.</p>
+                  <p className="mt-2 font-medium text-amber-300">
+                    Para consultas sobre licenciamiento, contactar a los desarrolladores.
+                  </p>
+                </div>
               </div>
             </div>
           </DialogContent>
