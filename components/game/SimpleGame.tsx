@@ -154,6 +154,11 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
   const animationRef = useRef<number>()
   const lastTimeRef = useRef<number>(0)
 
+  // Audio refs for background music
+  const level1MusicRef = useRef<HTMLAudioElement | null>(null)
+  const level2MusicRef = useRef<HTMLAudioElement | null>(null)
+  const currentMusicRef = useRef<HTMLAudioElement | null>(null)
+
   const {
     lastCommand,
     isListening,
@@ -268,7 +273,53 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
       }
     }
     initAudio()
+
+    return () => {
+      // Cleanup audio on unmount
+      if (currentMusicRef.current) {
+        currentMusicRef.current.pause()
+        currentMusicRef.current = null
+      }
+    }
   }, [])
+
+  // Handle background music changes based on level
+  useEffect(() => {
+    const playLevelMusic = async () => {
+      try {
+        // Stop current music
+        if (currentMusicRef.current) {
+          currentMusicRef.current.pause()
+          currentMusicRef.current.currentTime = 0
+        }
+
+        // Select appropriate music for level
+        const newMusic = gameState.currentLevel === 1 ? level1MusicRef.current : level2MusicRef.current
+
+        if (newMusic && !gameState.isPaused && !gameState.gameWon && !gameState.gameLost) {
+          currentMusicRef.current = newMusic
+          await newMusic.play()
+        }
+      } catch (error) {
+        console.log("Could not play background music:", error)
+      }
+    }
+
+    if (gameState.gameInitialized) {
+      playLevelMusic()
+    }
+  }, [gameState.currentLevel, gameState.gameInitialized, gameState.isPaused, gameState.gameWon, gameState.gameLost])
+
+  // Handle music pause/resume
+  useEffect(() => {
+    if (currentMusicRef.current) {
+      if (gameState.isPaused || gameState.gameWon || gameState.gameLost) {
+        currentMusicRef.current.pause()
+      } else {
+        currentMusicRef.current.play().catch(console.log)
+      }
+    }
+  }, [gameState.isPaused, gameState.gameWon, gameState.gameLost])
 
   // Play sound effect
   const playSound = useCallback(
@@ -1418,7 +1469,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
               </div>
             </div>
 
-            {/* Control buttons */}
+            {/* Control buttons 
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="text-amber-400 font-mono text-xs sm:text-sm">
                 {getLevelName(gameState.currentLevel)} ({gameState.currentLevel}/{gameState.maxLevel})
@@ -1446,6 +1497,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
                 </button>
               </div>
             </div>
+            */}
           </div>
         )}
 
