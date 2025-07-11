@@ -104,5 +104,10 @@ export default class BootScene extends Phaser.Scene {
     this.load.audio("enemy-hit", "/sounds/enemy-hit.mp3")
     this.load.audio("background-music", "/sounds/background-music.mp3")
     this.load.audio("level-complete", "/sounds/level-complete.mp3")
+
+    // Load music
+    this.load.audio("menu-music", "/sounds/menu-music.mp3")
+    this.load.audio("level1-music", "/sounds/level1-music.mp3")
+    this.load.audio("level2-music", "/sounds/level2-music.mp3")
   }
 }

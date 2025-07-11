@@ -22,6 +22,7 @@ export default class Level1Scene extends Phaser.Scene {
   private callbacks: GameCallbacks
   private lastCommand = ""
   private commandSubscription: any
+  private backgroundMusic!: Phaser.Sound.BaseSound
 
   constructor(callbacks: GameCallbacks) {
     super({ key: "Level1Scene" })
@@ -89,6 +90,10 @@ export default class Level1Scene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels)
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08)
     this.cameras.main.setBackgroundColor("#87CEEB") // Sky blue
+
+    // Start background music
+    this.backgroundMusic = this.sound.add("level1-music", { loop: true, volume: 0.2 })
+    this.backgroundMusic.play()
 
     // Subscribe to voice commands from the store
     this.setupCommandListener()
@@ -213,6 +218,11 @@ export default class Level1Scene extends Phaser.Scene {
   }
 
   private handleExit() {
+    // Stop background music
+    if (this.backgroundMusic) {
+      this.backgroundMusic.stop()
+    }
+
     // Play completion sound
     this.sound.play("level-complete")
 

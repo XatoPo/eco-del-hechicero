@@ -1,7 +1,9 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
-import { Book, Play, Scroll } from "lucide-react"
+import { Book, Play, Scroll, Users } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useState, useEffect } from "react"
 
 interface StartScreenProps {
   onStart: () => void
@@ -17,6 +19,41 @@ const COLORS = {
 }
 
 export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: StartScreenProps) {
+  const [backgroundMusic, setBackgroundMusic] = useState<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    // Create and play background music
+    const audio = new Audio("/sounds/menu-music.mp3")
+    audio.loop = true
+    audio.volume = 0.3
+
+    const playMusic = async () => {
+      try {
+        await audio.play()
+        setBackgroundMusic(audio)
+      } catch (error) {
+        console.log("Could not play background music:", error)
+      }
+    }
+
+    playMusic()
+
+    return () => {
+      if (audio) {
+        audio.pause()
+        audio.currentTime = 0
+      }
+    }
+  }, [])
+
+  const handleStart = () => {
+    if (backgroundMusic) {
+      backgroundMusic.pause()
+      backgroundMusic.currentTime = 0
+    }
+    onStart()
+  }
+
   return (
     <div
       className="flex min-h-[400px] sm:min-h-[600px] w-full flex-col items-center justify-center rounded-lg border-4 p-4 sm:p-8 text-center font-mono"
@@ -86,7 +123,7 @@ export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: 
         className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center"
       >
         <Button
-          onClick={onStart}
+          onClick={handleStart}
           className="px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold border-2 hover:opacity-80 transition-opacity"
           style={{
             backgroundColor: COLORS.UI_BORDER,
@@ -101,7 +138,7 @@ export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: 
         <Button
           onClick={onShowStory}
           variant="outline"
-          className="px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold border-2 hover:opacity-80 transition-opacity"
+          className="px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold border-2 hover:opacity-80 transition-opacity bg-transparent"
           style={{
             backgroundColor: "transparent",
             borderColor: COLORS.UI_BORDER,
@@ -115,7 +152,7 @@ export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: 
         <Button
           onClick={onShowEnemyGuide}
           variant="outline"
-          className="px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold border-2 hover:opacity-80 transition-opacity"
+          className="px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold border-2 hover:opacity-80 transition-opacity bg-transparent"
           style={{
             backgroundColor: "transparent",
             borderColor: COLORS.UI_BORDER,
@@ -125,6 +162,68 @@ export default function StartScreen({ onStart, onShowStory, onShowEnemyGuide }: 
           <Book className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           BESTIARIO
         </Button>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-bold border-2 hover:opacity-80 transition-opacity bg-transparent"
+              style={{
+                backgroundColor: "transparent",
+                borderColor: COLORS.UI_BORDER,
+                color: COLORS.UI_BORDER,
+              }}
+            >
+              <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+              CRÉDITOS
+            </Button>
+          </DialogTrigger>
+          <DialogContent
+            className="max-w-md mx-4 rounded-lg border-4"
+            style={{
+              backgroundColor: COLORS.UI_BG,
+              borderColor: COLORS.UI_BORDER,
+              color: COLORS.UI_TEXT,
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-center mb-4" style={{ color: COLORS.UI_BORDER }}>
+                ⚡ CRÉDITOS ⚡
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 text-center">
+              <div>
+                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.ACCENT }}>
+                  DESARROLLADORES
+                </h3>
+                <p className="text-sm">Flavio Sebastian Villanueva Medina</p>
+                <p className="text-sm">Gerardo Daniel Aldana Leiva</p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.ACCENT }}>
+                  TECNOLOGÍAS
+                </h3>
+                <p className="text-xs">Next.js • React • TypeScript • Phaser.js</p>
+                <p className="text-xs">Web Speech API • Tailwind CSS</p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.ACCENT }}>
+                  LICENCIA
+                </h3>
+                <p className="text-xs">© 2024 Eco del Hechicero</p>
+                <p className="text-xs">Todos los derechos reservados</p>
+                <p className="text-xs">Proyecto educativo desarrollado para</p>
+                <p className="text-xs">demostración de tecnologías web</p>
+              </div>
+
+              <div className="pt-2 border-t" style={{ borderColor: COLORS.ACCENT }}>
+                <p className="text-xs opacity-75">Juego desarrollado con fines educativos</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </motion.div>
 
       <motion.div

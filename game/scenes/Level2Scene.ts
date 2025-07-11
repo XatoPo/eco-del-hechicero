@@ -27,6 +27,7 @@ export default class Level2Scene extends Phaser.Scene {
     activated: boolean[]
     complete: boolean
   }
+  private backgroundMusic!: Phaser.Sound.BaseSound
 
   constructor(callbacks: GameCallbacks) {
     super({ key: "Level2Scene" })
@@ -97,6 +98,10 @@ export default class Level2Scene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels)
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08)
     this.cameras.main.setBackgroundColor("#000000") // Dark background for crypt
+
+    // Start background music
+    this.backgroundMusic = this.sound.add("level2-music", { loop: true, volume: 0.2 })
+    this.backgroundMusic.play()
 
     // Subscribe to voice commands from the store
     this.setupCommandListener()
@@ -258,6 +263,11 @@ export default class Level2Scene extends Phaser.Scene {
       })
 
       return
+    }
+
+    // Stop background music
+    if (this.backgroundMusic) {
+      this.backgroundMusic.stop()
     }
 
     // Play completion sound
