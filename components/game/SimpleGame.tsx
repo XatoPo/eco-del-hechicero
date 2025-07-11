@@ -1469,13 +1469,14 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
               </div>
             </div>
 
-            {/* Control buttons 
+            {/* Control buttons */}
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="text-amber-400 font-mono text-xs sm:text-sm">
                 {getLevelName(gameState.currentLevel)} ({gameState.currentLevel}/{gameState.maxLevel})
               </div>
 
               <div className="flex gap-2">
+                {/*
                 <button
                   onClick={togglePause}
                   className="px-2 py-1 bg-blue-600/90 hover:bg-blue-700 text-white border border-blue-500 rounded backdrop-blur-sm shadow-lg text-xs sm:text-sm"
@@ -1486,6 +1487,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
                   {gameState.isPaused ? "▶️" : "⏸️"}
                   <span className="hidden sm:inline ml-1">{gameState.isPaused ? "Reanudar" : "Pausa"}</span>
                 </button>
+                */}
                 <button
                   onClick={handleBackToStart}
                   className="px-2 py-1 bg-amber-600/90 hover:bg-amber-700 text-white border border-amber-500 rounded backdrop-blur-sm shadow-lg text-xs sm:text-sm"
@@ -1497,7 +1499,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
                 </button>
               </div>
             </div>
-            */}
+            
           </div>
         )}
 
