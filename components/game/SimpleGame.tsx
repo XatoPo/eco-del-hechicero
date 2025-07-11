@@ -3,8 +3,6 @@
 import { useRef, useEffect, useState, useCallback } from "react"
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition"
 import HUD from "./HUD"
-import { Button } from "@/components/ui/button"
-import { Home, Pause, Play, Volume2, VolumeX } from "lucide-react"
 
 interface Player {
   x: number
@@ -167,7 +165,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
     hasPermission,
   } = useVoiceRecognition()
 
-  // Game state with proper pause handling
+  // SIMPLIFIED: Game state with clear defeat/victory tracking
   const [gameState, setGameState] = useState({
     health: 100,
     mana: 100,
@@ -177,9 +175,6 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
     totalEnemies: 6,
     currentLevel: 1,
     maxLevel: 2,
-    gameWon: false,
-    gameLost: false,
-    gameOverReason: "",
     score: 0,
     timeElapsed: 0,
     spellsCast: 0,
@@ -187,6 +182,9 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
     showLevelTransition: false,
     isPaused: false,
     gameInitialized: false,
+    // CRITICAL: Single source of truth for game status
+    gameStatus: "playing" as "playing" | "defeated" | "victory",
+    defeatReason: null as "health" | "mana" | null,
   })
 
   // Game objects refs
@@ -219,7 +217,6 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
   const shieldRef = useRef({ active: false, timeLeft: 0 })
   const cameraRef = useRef({ x: 0, y: 0 })
   const processedCommandsRef = useRef<Set<string>>(new Set())
-  const lastManaCheckRef = useRef<number>(0)
   const buttonCooldownRef = useRef<Record<string, number>>({})
 
   // Audio context for sound effects
@@ -300,10 +297,44 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
     [],
   )
 
+  // CRITICAL: Immediate defeat detection function
+  const checkDefeatConditions = useCallback(() => {
+    // Only check if game is still playing
+    if (gameState.gameStatus !== "playing" || !gameState.gameInitialized) {
+      return
+    }
+
+    console.log("🔍 Checking defeat conditions - Health:", gameState.health, "Mana:", gameState.mana)
+
+    // IMMEDIATE: Health defeat check
+    if (gameState.health <= 0) {
+      console.log("💀 DEFEAT BY HEALTH DETECTED!")
+      setGameState((prev) => ({
+        ...prev,
+        gameStatus: "defeated",
+        defeatReason: "health",
+      }))
+      return true
+    }
+
+    // FIXED: Mana defeat check - only when mana reaches exactly 0
+    if (gameState.mana <= 0) {
+      console.log("⚡ DEFEAT BY MANA DETECTED! Mana:", gameState.mana)
+      setGameState((prev) => ({
+        ...prev,
+        gameStatus: "defeated",
+        defeatReason: "mana",
+      }))
+      return true
+    }
+
+    return false
+  }, [gameState.health, gameState.mana, gameState.gameStatus, gameState.gameInitialized])
+
   // FIXED: Process command with cooldown and sound effects
   const processCommand = useCallback(
     (command: string, commandId?: string) => {
-      if (gameState.isPaused || gameState.gameWon || gameState.gameLost) {
+      if (gameState.isPaused || gameState.gameStatus !== "playing") {
         return false
       }
 
@@ -452,7 +483,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
           return false
       }
     },
-    [gameState.mana, gameState.healUses, gameState.isPaused, gameState.gameWon, gameState.gameLost, playSound],
+    [gameState.mana, gameState.healUses, gameState.isPaused, gameState.gameStatus, playSound],
   )
 
   // Create level-specific platforms
@@ -515,7 +546,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
     createEnemiesForLevel(gameState.currentLevel)
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!gameState.isPaused && !gameState.gameWon && !gameState.gameLost) {
+      if (!gameState.isPaused && gameState.gameStatus === "playing") {
         keysRef.current[e.code] = true
       }
       if (e.code === "Space") e.preventDefault()
@@ -560,17 +591,24 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
       },
       {
         enemies: [
-          { type: "skeleton", weakness: "light", color: COLORS.SKELETON_BONES, health: 2, name: "Esqueleto Guerrero" },
-          { type: "wraith", weakness: "light", color: COLORS.WRAITH_BODY, health: 3, name: "Espectro Siniestro" },
-          { type: "golem", weakness: "light", color: COLORS.GOLEM_BODY, health: 3, name: "Gólem de Piedra" },
-          { type: "skeleton", weakness: "light", color: COLORS.SKELETON_BONES, health: 2, name: "Esqueleto Guerrero" },
-          { type: "wraith", weakness: "light", color: COLORS.WRAITH_BODY, health: 3, name: "Espectro Siniestro" },
-          { type: "golem", weakness: "light", color: COLORS.GOLEM_BODY, health: 3, name: "Gólem de Piedra" },
-          { type: "skeleton", weakness: "light", color: COLORS.SKELETON_BONES, health: 2, name: "Esqueleto Guerrero" },
-          { type: "wraith", weakness: "light", color: COLORS.WRAITH_BODY, health: 3, name: "Espectro Siniestro" },
+          { type: "skeleton", weakness: "light", color: COLORS.SKELETON_BONES, health: 3, name: "Esqueleto Guerrero" },
+          { type: "wraith", weakness: "light", color: COLORS.WRAITH_BODY, health: 4, name: "Espectro Siniestro" },
+          { type: "golem", weakness: "light", color: COLORS.GOLEM_BODY, health: 4, name: "Gólem de Piedra" },
+          { type: "skeleton", weakness: "light", color: COLORS.SKELETON_BONES, health: 3, name: "Esqueleto Guerrero" },
+          { type: "wraith", weakness: "light", color: COLORS.WRAITH_BODY, health: 4, name: "Espectro Siniestro" },
+          { type: "golem", weakness: "light", color: COLORS.GOLEM_BODY, health: 4, name: "Gólem de Piedra" },
+          { type: "skeleton", weakness: "light", color: COLORS.SKELETON_BONES, health: 3, name: "Esqueleto Guerrero" },
+          {
+            type: "wraith",
+            weakness: "light",
+            color: COLORS.WRAITH_BODY,
+            health: 5,
+            name: "Jefe Espectro",
+            isBoss: true,
+          },
         ],
         spacing: 120,
-        speed: 40,
+        speed: 50,
         aiLevel: 2,
       },
     ]
@@ -614,7 +652,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
         targetX: baseX,
         patrolLeft: Math.max(50, baseX - patrolRange),
         patrolRight: Math.min(950, baseX + patrolRange),
-        isBoss: false,
+        isBoss: enemyData.isBoss || false,
       })
     })
 
@@ -631,18 +669,25 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
 
   // Process voice commands
   useEffect(() => {
-    if (lastCommand && !gameState.gameWon && !gameState.gameLost && !gameState.isPaused) {
+    if (lastCommand && !gameState.isPaused && gameState.gameStatus === "playing") {
       const [command, timestamp] = lastCommand.split("_")
       const commandId = lastCommand
       processCommand(command, commandId)
     }
-  }, [lastCommand, gameState.gameWon, gameState.gameLost, gameState.isPaused, processCommand])
+  }, [lastCommand, gameState.isPaused, gameState.gameStatus, processCommand])
+
+  // CRITICAL: Check defeat conditions after every state change
+  useEffect(() => {
+    if (gameState.gameInitialized && gameState.gameStatus === "playing") {
+      checkDefeatConditions()
+    }
+  }, [gameState.health, gameState.mana, gameState.gameInitialized, gameState.gameStatus, checkDefeatConditions])
 
   // FIXED: Update function with proper pause handling
   const update = useCallback(
     (deltaTime: number) => {
-      // CRITICAL: Complete stop when paused
-      if (gameState.isPaused || gameState.gameWon || gameState.gameLost) {
+      // CRITICAL: Complete stop when paused or game over
+      if (gameState.isPaused || gameState.gameStatus !== "playing") {
         return
       }
 
@@ -729,13 +774,20 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
 
       player.x = Math.max(0, Math.min(1000 - player.width, player.x))
 
+      // CRITICAL: Fall damage and immediate health check
       if (player.y > 550) {
         player.x = 100
         player.y = 430
         player.velocityX = 0
         player.velocityY = 0
         const fallDamage = 20 + gameState.currentLevel * 5
-        setGameState((prev) => ({ ...prev, health: Math.max(0, prev.health - fallDamage) }))
+        console.log("💥 Fall damage:", fallDamage)
+        setGameState((prev) => {
+          const newHealth = Math.max(0, prev.health - fallDamage)
+
+          console.log("❤️ Health after fall:", newHealth)
+          return { ...prev, health: newHealth }
+        })
       }
 
       enemies.forEach((enemy) => {
@@ -876,7 +928,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
               return {
                 ...prev,
                 enemiesDefeated: newDefeated,
-                score: prev.score + 100,
+                score: prev.score + (enemy.isBoss ? 500 : 100),
               }
             })
           }
@@ -886,6 +938,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
       spellsRef.current = spells.filter((spell) => spell.active)
       enemiesRef.current = enemies.filter((enemy) => !enemy.dying)
 
+      // CRITICAL: Player damage with immediate health update
       if (player.invulnerable <= 0) {
         enemies.forEach((enemy) => {
           if (
@@ -898,9 +951,14 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
             return
 
           if (!shield.active) {
-            const damage = 15
+            const damage = enemy.isBoss ? 25 : 15
+            console.log("💥 Enemy damage:", damage)
             playSound(100, 0.3, "sawtooth") // Player damage sound
-            setGameState((prev) => ({ ...prev, health: Math.max(0, prev.health - damage) }))
+            setGameState((prev) => {
+              const newHealth = Math.max(0, prev.health - damage)
+              console.log("❤️ Health after enemy damage:", newHealth)
+              return { ...prev, health: newHealth }
+            })
             player.invulnerable = 3000
           }
         })
@@ -908,6 +966,7 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
         player.invulnerable -= deltaTime
       }
 
+      // Check victory condition
       const currentEnemiesDefeated = gameState.totalEnemies - enemiesRef.current.length
       if (currentEnemiesDefeated >= gameState.totalEnemies && !gameState.levelCompleted) {
         setGameState((prev) => ({
@@ -919,10 +978,11 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
 
         setTimeout(() => {
           if (gameState.currentLevel >= gameState.maxLevel) {
+            // VICTORY!
+            console.log("🎉 VICTORY ACHIEVED!")
             setGameState((prev) => ({
               ...prev,
-              gameWon: true,
-              gameOverReason: "¡Has completado todos los niveles disponibles! ¡Eres el maestro hechicero!",
+              gameStatus: "victory",
               showLevelTransition: false,
             }))
           } else {
@@ -943,50 +1003,6 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
             createEnemiesForLevel(nextLevel)
           }
         }, 3000)
-      }
-
-      if (gameState.gameInitialized && !gameState.gameLost && !gameState.gameWon) {
-        const canWinWithMana = () => {
-          if (enemiesRef.current.length === 0) return true
-
-          const remainingMana = gameState.mana
-          let enemiesThatNeedLight = 0
-          let enemiesThatNeedFire = 0
-
-          enemiesRef.current.forEach((enemy) => {
-            if (enemy.weakness === "light") {
-              enemiesThatNeedLight += enemy.health
-            } else if (enemy.weakness === "fire") {
-              enemiesThatNeedFire += enemy.health
-            }
-          })
-
-          const manaNeededForLight = enemiesThatNeedLight * SPELL_COSTS.light
-          const manaNeededForFire = enemiesThatNeedFire * SPELL_COSTS.fire
-          const totalManaNeeded = manaNeededForLight + manaNeededForFire
-
-          return remainingMana >= totalManaNeeded
-        }
-
-        if (!canWinWithMana() && enemiesRef.current.length > 0) {
-          const currentTime = performance.now()
-          if (!lastManaCheckRef.current || currentTime - lastManaCheckRef.current > 3000) {
-            lastManaCheckRef.current = currentTime
-            setGameState((prev) => ({
-              ...prev,
-              gameLost: true,
-              gameOverReason: "Te quedaste sin maná y no puedes derrotar a los enemigos restantes.",
-            }))
-          }
-        }
-      }
-
-      if (gameState.health <= 0 && !gameState.gameLost) {
-        setGameState((prev) => ({
-          ...prev,
-          gameLost: true,
-          gameOverReason: "Tu salud llegó a cero. ¡La oscuridad ha vencido!",
-        }))
       }
 
       const targetCameraX = player.x - canvasDimensions.width / 2
@@ -1046,6 +1062,12 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
 
     enemiesRef.current.forEach((enemy) => {
       ctx.save()
+
+      // Boss glow effect
+      if (enemy.isBoss) {
+        ctx.shadowColor = "#8E24AA"
+        ctx.shadowBlur = 15
+      }
 
       switch (enemy.type) {
         case "tree":
@@ -1154,6 +1176,13 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
       ctx.font = "8px Arial"
       ctx.textAlign = "center"
       ctx.fillText(`${enemy.health}/${enemy.maxHealth}`, enemy.x + barWidth / 2, enemy.y - 12)
+
+      // Boss indicator
+      if (enemy.isBoss) {
+        ctx.fillStyle = "#FFD700"
+        ctx.font = "10px Arial"
+        ctx.fillText("👑 JEFE", enemy.x + barWidth / 2, enemy.y - 20)
+      }
 
       ctx.restore()
     })
@@ -1365,310 +1394,454 @@ export default function SimpleGame({ onBackToStart }: SimpleGameProps) {
       {/* Main container */}
       <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 p-2 sm:p-4 lg:p-6">
         {/* Enhanced Header with control buttons OUTSIDE canvas */}
-        <div
-          className="w-full max-w-7xl flex flex-col sm:flex-row justify-between items-center mb-2 sm:mb-4 px-3 sm:px-6 py-3 sm:py-4 rounded-xl border-2 shadow-2xl"
-          style={{
-            background: `linear-gradient(135deg, ${COLORS.UI_BG}E6 0%, #1A0F08E6 50%, ${COLORS.UI_BG}E6 100%)`,
-            borderColor: COLORS.UI_BORDER,
-            boxShadow: `0 0 30px ${COLORS.UI_BORDER}40, inset 0 0 20px ${COLORS.UI_BG}80`,
-          }}
-        >
-          <div className="flex items-center gap-2 sm:gap-4 mb-2 sm:mb-0">
-            <div className="flex items-center gap-1 sm:gap-2">
-              <div className="w-3 h-3 sm:w-4 sm:h-4 bg-amber-400 rounded-full animate-pulse"></div>
-              <h1
-                className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-wider"
-                style={{
-                  color: COLORS.UI_BORDER,
-                  textShadow: `0 0 20px ${COLORS.UI_BORDER}, 0 0 40px ${COLORS.UI_BORDER}80`,
-                }}
-              >
-                ⚡ ECO DEL HECHICERO ⚡
-              </h1>
-            </div>
-          </div>
-
-          {/* MOVED: Control buttons to header */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm" style={{ color: COLORS.UI_TEXT }}>
-              <div className="flex items-center gap-1">
-                {isListening ? (
-                  <Volume2 className="w-3 h-3 sm:w-4 sm:h-4 text-green-400 animate-pulse" />
-                ) : (
-                  <VolumeX className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
-                )}
-                <span className="hidden sm:inline">{isListening ? "Escuchando..." : "Micrófono inactivo"}</span>
-              </div>
-              <div className="text-amber-400 font-mono">
-                {getLevelName(gameState.currentLevel)} ({gameState.currentLevel}/{gameState.maxLevel})
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={togglePause}
-                size="sm"
-                className="bg-blue-600/90 hover:bg-blue-700 text-white border-blue-500 backdrop-blur-sm shadow-lg"
-                style={{
-                  boxShadow: `0 0 15px ${COLORS.UI_BORDER}40`,
-                }}
-              >
-                {gameState.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                <span className="hidden sm:inline ml-1">{gameState.isPaused ? "Reanudar" : "Pausa"}</span>
-              </Button>
-              <Button
-                onClick={handleBackToStart}
-                size="sm"
-                className="bg-amber-600/90 hover:bg-amber-700 text-white border-amber-500 backdrop-blur-sm shadow-lg"
-                style={{
-                  boxShadow: `0 0 15px ${COLORS.UI_BORDER}40`,
-                }}
-              >
-                <Home className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">Inicio</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Game Canvas Container with enhanced styling */}
-        <div
-          className="relative rounded-2xl border-4 shadow-2xl overflow-hidden"
-          style={{
-            borderColor: COLORS.UI_BORDER,
-            boxShadow: `0 0 50px ${COLORS.UI_BORDER}60, inset 0 0 30px ${COLORS.UI_BG}40`,
-            background: `linear-gradient(135deg, ${COLORS.UI_BG} 0%, #1A0F08 100%)`,
-          }}
-        >
-          {/* HUD Component */}
-          <div className="absolute top-0 left-0 right-0 z-20">
-            <HUD
-              health={gameState.health}
-              mana={gameState.mana}
-              maxMana={gameState.maxMana}
-              lastCommand={lastCommand.split("_")[0] || ""}
-              level={gameState.currentLevel}
-              enemiesDefeated={gameState.enemiesDefeated}
-              totalEnemies={gameState.totalEnemies}
-              healUses={gameState.healUses}
-              transcript={transcript}
-              isListening={isListening}
-              commandCount={commandCount}
-            />
-          </div>
-
-          {/* Game Canvas */}
-          <canvas
-            ref={canvasRef}
-            width={canvasDimensions.width}
-            height={canvasDimensions.height}
-            className="block bg-black"
+        {gameState.gameStatus === "playing" && (
+          <div
+            className="w-full max-w-7xl flex flex-col sm:flex-row justify-between items-center mb-2 sm:mb-4 px-3 sm:px-6 py-3 sm:py-4 rounded-xl border-2 shadow-2xl"
             style={{
-              imageRendering: "pixelated",
-              zIndex: 10,
-              width: "100%",
-              height: "auto",
-              maxWidth: `${canvasDimensions.width}px`,
-              maxHeight: `${canvasDimensions.height}px`,
-            }}
-          />
-
-          {/* Level transition overlay */}
-          {gameState.showLevelTransition && (
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl"
-              style={{
-                zIndex: 50,
-                background: `linear-gradient(135deg, ${COLORS.UI_BG}F0 0%, #1A0F08F0 50%, ${COLORS.UI_BG}F0 100%)`,
-              }}
-            >
-              <div className="text-center text-white p-6 rounded-xl border-2" style={{ borderColor: COLORS.UI_BORDER }}>
-                <h2
-                  className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4"
-                  style={{
-                    color: COLORS.UI_BORDER,
-                    textShadow: `0 0 20px ${COLORS.UI_BORDER}`,
-                  }}
-                >
-                  ✨ ¡Nivel {gameState.currentLevel} Completado! ✨
-                </h2>
-                {gameState.currentLevel < gameState.maxLevel && (
-                  <p className="text-lg sm:text-xl" style={{ color: COLORS.UI_TEXT }}>
-                    Preparándote para el Nivel {gameState.currentLevel + 1}...
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Game over overlay */}
-          {(gameState.gameWon || gameState.gameLost) && (
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl"
-              style={{
-                zIndex: 50,
-                background: `linear-gradient(135deg, ${COLORS.UI_BG}F5 0%, #1A0F08F5 50%, ${COLORS.UI_BG}F5 100%)`,
-              }}
-            >
-              <div className="text-center text-white p-6 rounded-xl border-2" style={{ borderColor: COLORS.UI_BORDER }}>
-                <h2
-                  className={`text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 ${gameState.gameWon ? "text-green-400" : "text-red-400"}`}
-                >
-                  {gameState.gameWon ? "🎉 ¡VICTORIA! 🎉" : "💀 DERROTA 💀"}
-                </h2>
-                <p className="text-base sm:text-lg mb-4" style={{ color: COLORS.UI_TEXT }}>
-                  {gameState.gameOverReason}
-                </p>
-                <div className="space-y-2 text-sm sm:text-base" style={{ color: COLORS.UI_BORDER }}>
-                  <p>Puntuación: {gameState.score}</p>
-                  <p>Tiempo: {Math.floor(gameState.timeElapsed)}s</p>
-                  <p>Hechizos lanzados: {gameState.spellsCast}</p>
-                  <p>Nivel alcanzado: {gameState.currentLevel}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Pause overlay */}
-          {gameState.isPaused && (
-            <div
-              className="absolute inset-0 flex items-center justify-center rounded-2xl"
-              style={{
-                zIndex: 50,
-                background: `linear-gradient(135deg, ${COLORS.UI_BG}E0 0%, #1A0F08E0 50%, ${COLORS.UI_BG}E0 100%)`,
-              }}
-            >
-              <h2
-                className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white"
-                style={{
-                  textShadow: `0 0 30px ${COLORS.UI_BORDER}`,
-                }}
-              >
-                ⏸️ PAUSADO
-              </h2>
-            </div>
-          )}
-        </div>
-
-        {/* Enhanced Instructions Panel */}
-        <div
-          className="w-full max-w-7xl rounded-xl p-3 sm:p-4 lg:p-6 border-2 font-mono shadow-2xl"
-          style={{
-            background: `linear-gradient(135deg, ${COLORS.UI_BG}E6 0%, #1A0F08E6 50%, ${COLORS.UI_BG}E6 100%)`,
-            borderColor: COLORS.UI_BORDER,
-            color: COLORS.UI_TEXT,
-            boxShadow: `0 0 30px ${COLORS.UI_BORDER}40, inset 0 0 20px ${COLORS.UI_BG}80`,
-          }}
-        >
-          <h3
-            className="mb-3 font-bold text-base sm:text-lg lg:text-xl"
-            style={{
-              color: COLORS.UI_BORDER,
-              textShadow: `0 0 10px ${COLORS.UI_BORDER}80`,
+              background: `linear-gradient(135deg, ${COLORS.UI_BG}E6 0%, #1A0F08E6 50%, ${COLORS.UI_BG}E6 100%)`,
+              borderColor: COLORS.UI_BORDER,
+              boxShadow: `0 0 30px ${COLORS.UI_BORDER}40, inset 0 0 20px ${COLORS.UI_BG}80`,
             }}
           >
-            🎮 CONTROLES MEJORADOS - {getLevelName(gameState.currentLevel)}
-          </h3>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs sm:text-sm mb-4">
-            <div className="space-y-2">
-              <p className="font-bold mb-2 text-amber-400">⌨️ TECLADO:</p>
-              <p>⬅️ ➡️ : MOVERSE</p>
-              <p>🚀 ESPACIO : SALTAR</p>
-            </div>
-            <div className="space-y-1">
-              <p className="font-bold mb-2 text-amber-400">🎤 COMANDOS DE VOZ MEJORADOS:</p>
-              <p>🔥 "FUEGO" / "LLAMA" / "BOLA DE FUEGO" ({SPELL_COSTS.fire} MP)</p>
-              <p>💡 "LUZ" / "BRILLO" / "DESTELLO" ({SPELL_COSTS.light} MP)</p>
-              <p>🛡️ "ESCUDO" / "PROTECCIÓN" / "DEFENSA" ({SPELL_COSTS.shield} MP)</p>
-              <p>💚 "CURAR" / "SANAR" / "VIDA" ({SPELL_COSTS.heal} MP)</p>
-              <p>🚀 "SALTAR" / "SUPER SALTO" ({SPELL_COSTS.superJump} MP)</p>
-              <p>⬅️ "ATRÁS" / "IZQUIERDA"</p>
-              <p>➡️ "ADELANTE" / "DERECHA"</p>
-            </div>
-          </div>
-
-          <div className="border-t pt-3 mb-3" style={{ borderColor: COLORS.UI_BORDER }}>
-            <p className="mb-2 text-xs sm:text-sm font-bold text-amber-400">🧪 BOTONES DE PRUEBA (CON COOLDOWN):</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 sm:gap-2">
-              {[
-                { cmd: "fuego", icon: "🔥", color: "#FF3D00" },
-                { cmd: "luz", icon: "💡", color: "#FFEB3B" },
-                { cmd: "escudo", icon: "🛡️", color: "#00BCD4" },
-                { cmd: "curar", icon: "💚", color: "#4CAF50" },
-                { cmd: "saltar", icon: "🚀", color: "#2196F3" },
-                { cmd: "atrás", icon: "⬅️", color: "#FFB300" },
-                { cmd: "adelante", icon: "➡️", color: "#FFB300" },
-              ].map(({ cmd, icon, color }) => (
-                <button
-                  key={cmd}
-                  onClick={() => testSpell(cmd)}
-                  className="px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm font-bold rounded border hover:opacity-80 transition-all duration-200 transform hover:scale-105 shadow-lg"
+            <div className="flex items-center gap-2 sm:gap-4 mb-2 sm:mb-0">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-amber-400 rounded-full animate-pulse"></div>
+                <h1
+                  className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-wider"
                   style={{
-                    backgroundColor: color,
-                    borderColor: COLORS.UI_BORDER,
-                    color: "#0D0D0D",
-                    boxShadow: `0 0 10px ${color}40`,
+                    color: COLORS.UI_BORDER,
+                    textShadow: `0 0 20px ${COLORS.UI_BORDER}, 0 0 40px ${COLORS.UI_BORDER}80`,
                   }}
                 >
-                  {icon} <span className="hidden sm:inline">{cmd.toUpperCase()}</span>
+                  ⚡ ECO DEL HECHICERO ⚡
+                </h1>
+              </div>
+            </div>
+
+            {/* Control buttons */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="text-amber-400 font-mono text-xs sm:text-sm">
+                {getLevelName(gameState.currentLevel)} ({gameState.currentLevel}/{gameState.maxLevel})
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={togglePause}
+                  className="px-2 py-1 bg-blue-600/90 hover:bg-blue-700 text-white border border-blue-500 rounded backdrop-blur-sm shadow-lg text-xs sm:text-sm"
+                  style={{
+                    boxShadow: `0 0 15px ${COLORS.UI_BORDER}40`,
+                  }}
+                >
+                  {gameState.isPaused ? "▶️" : "⏸️"}
+                  <span className="hidden sm:inline ml-1">{gameState.isPaused ? "Reanudar" : "Pausa"}</span>
                 </button>
-              ))}
+                <button
+                  onClick={handleBackToStart}
+                  className="px-2 py-1 bg-amber-600/90 hover:bg-amber-700 text-white border border-amber-500 rounded backdrop-blur-sm shadow-lg text-xs sm:text-sm"
+                  style={{
+                    boxShadow: `0 0 15px ${COLORS.UI_BORDER}40`,
+                  }}
+                >
+                  🏠<span className="hidden sm:inline ml-1">Inicio</span>
+                </button>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="text-xs sm:text-sm space-y-3">
-            <div>
-              <p className="mb-2 font-bold text-amber-400">BESTIARIO - NIVEL {gameState.currentLevel}:</p>
-              {gameState.currentLevel === 1 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <p>🌳 Árbol Siniestro: Débil al FUEGO</p>
-                  <p>🟣 Slime Venenoso: Débil al FUEGO</p>
-                  <p>👻 Espíritu del Bosque: Débil a la LUZ</p>
-                </div>
-              )}
-              {gameState.currentLevel === 2 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <p>💀 Esqueleto Guerrero: Débil a la LUZ</p>
-                  <p>🌫️ Espectro Siniestro: Débil a la LUZ</p>
-                  <p>🗿 Gólem de Piedra: Débil a la LUZ</p>
-                </div>
-              )}
+        {/* Game Canvas Container with enhanced styling */}
+        {gameState.gameStatus === "playing" && (
+          <div
+            className="relative rounded-2xl border-4 shadow-2xl overflow-hidden"
+            style={{
+              borderColor: COLORS.UI_BORDER,
+              boxShadow: `0 0 50px ${COLORS.UI_BORDER}60, inset 0 0 30px ${COLORS.UI_BG}40`,
+              background: `linear-gradient(135deg, ${COLORS.UI_BG} 0%, #1A0F08 100%)`,
+            }}
+          >
+            {/* Game Canvas */}
+            <canvas
+              ref={canvasRef}
+              width={canvasDimensions.width}
+              height={canvasDimensions.height}
+              className="block bg-black"
+              style={{
+                imageRendering: "pixelated",
+                zIndex: 10,
+                width: "100%",
+                height: "auto",
+                maxWidth: `${canvasDimensions.width}px`,
+                maxHeight: `${canvasDimensions.height}px`,
+              }}
+            />
+
+            {/* HUD Overlay - Health, Mana, and Voice Commands */}
+            <div className="absolute top-0 left-0 right-0 z-20">
+              <HUD
+                health={gameState.health}
+                mana={gameState.mana}
+                maxMana={gameState.maxMana}
+                lastCommand={lastCommand.split("_")[0] || ""}
+                level={gameState.currentLevel}
+                enemiesDefeated={gameState.enemiesDefeated}
+                totalEnemies={gameState.totalEnemies}
+                healUses={gameState.healUses}
+                transcript={transcript}
+                isListening={isListening}
+                commandCount={commandCount}
+              />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="p-3 rounded bg-green-600/20 border border-green-500/30">
-                <p className="font-bold text-green-400">✅ BOTONES ARREGLADOS:</p>
-                <p>• Botón inicio RECARGA la página</p>
-                <p>• Botón pausa MOVIDO al header</p>
-                <p>• Sin blur que bloquee controles</p>
+            {/* Level transition overlay */}
+            {gameState.showLevelTransition && (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl"
+                style={{
+                  zIndex: 50,
+                  background: `linear-gradient(135deg, ${COLORS.UI_BG}F0 0%, #1A0F08F0 50%, ${COLORS.UI_BG}F0 100%)`,
+                }}
+              >
+                <div
+                  className="text-center text-white p-6 rounded-xl border-2"
+                  style={{ borderColor: COLORS.UI_BORDER }}
+                >
+                  <h2
+                    className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4"
+                    style={{
+                      color: COLORS.UI_BORDER,
+                      textShadow: `0 0 20px ${COLORS.UI_BORDER}`,
+                    }}
+                  >
+                    ✨ ¡Nivel {gameState.currentLevel} Completado! ✨
+                  </h2>
+                  {gameState.currentLevel < gameState.maxLevel && (
+                    <p className="text-lg sm:text-xl" style={{ color: COLORS.UI_TEXT }}>
+                      Preparándote para el Nivel {gameState.currentLevel + 1}...
+                    </p>
+                  )}
+                </div>
               </div>
+            )}
 
-              <div className="p-3 rounded bg-blue-600/20 border border-blue-500/30">
-                <p className="font-bold text-blue-400">🔊 SONIDOS IMPLEMENTADOS:</p>
-                <p>• Efectos para cada hechizo</p>
-                <p>• Sonidos de impacto y muerte</p>
-                <p>• Audio de daño al jugador</p>
+            {/* Pause overlay */}
+            {gameState.isPaused && (
+              <div
+                className="absolute inset-0 flex items-center justify-center rounded-2xl"
+                style={{
+                  zIndex: 50,
+                  background: `linear-gradient(135deg, ${COLORS.UI_BG}E0 0%, #1A0F08E0 50%, ${COLORS.UI_BG}E0 100%)`,
+                }}
+              >
+                <h2
+                  className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white"
+                  style={{
+                    textShadow: `0 0 30px ${COLORS.UI_BORDER}`,
+                  }}
+                >
+                  ⏸️ PAUSADO
+                </h2>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="p-3 rounded bg-purple-600/20 border border-purple-500/30">
-                <p className="font-bold text-purple-400">🎤 VOZ MEJORADA:</p>
-                <p>• Análisis de oraciones completas</p>
-                <p>• Sistema de confianza avanzado</p>
-                <p>• Múltiples palabras clave</p>
+        {/* Enhanced Instructions Panel */}
+        {gameState.gameStatus === "playing" && (
+          <div
+            className="w-full max-w-7xl rounded-xl p-3 sm:p-4 lg:p-6 border-2 font-mono shadow-2xl"
+            style={{
+              background: `linear-gradient(135deg, ${COLORS.UI_BG}E6 0%, #1A0F08E6 50%, ${COLORS.UI_BG}E6 100%)`,
+              borderColor: COLORS.UI_BORDER,
+              color: COLORS.UI_TEXT,
+              boxShadow: `0 0 30px ${COLORS.UI_BORDER}40, inset 0 0 20px ${COLORS.UI_BG}80`,
+            }}
+          >
+            <h3
+              className="mb-3 font-bold text-base sm:text-lg lg:text-xl"
+              style={{
+                color: COLORS.UI_BORDER,
+                textShadow: `0 0 10px ${COLORS.UI_BORDER}80`,
+              }}
+            >
+              🎮 CONTROLES MEJORADOS - {getLevelName(gameState.currentLevel)}
+            </h3>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs sm:text-sm mb-4">
+              <div className="space-y-2">
+                <p className="font-bold mb-2 text-amber-400">⌨️ TECLADO:</p>
+                <p>⬅️ ➡️ : MOVERSE</p>
+                <p>🚀 ESPACIO : SALTAR</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-bold mb-2 text-amber-400">🎤 COMANDOS DE VOZ MEJORADOS:</p>
+                <p>🔥 "FUEGO" / "LLAMA" / "BOLA DE FUEGO" ({SPELL_COSTS.fire} MP)</p>
+                <p>💡 "LUZ" / "BRILLO" / "DESTELLO" ({SPELL_COSTS.light} MP)</p>
+                <p>🛡️ "ESCUDO" / "PROTECCIÓN" / "DEFENSA" ({SPELL_COSTS.shield} MP)</p>
+                <p>💚 "CURAR" / "SANAR" / "VIDA" ({SPELL_COSTS.heal} MP)</p>
+                <p>🚀 "SALTAR" / "SUPER SALTO" ({SPELL_COSTS.superJump} MP)</p>
+                <p>⬅️ "ATRÁS" / "IZQUIERDA"</p>
+                <p>➡️ "ADELANTE" / "DERECHA"</p>
               </div>
             </div>
 
-            <div className="p-3 rounded bg-amber-600/20 border border-amber-500/30">
-              <p className="font-bold text-amber-400">🎨 CONTROLES REPOSICIONADOS:</p>
-              <p>• Botones movidos al header principal</p>
-              <p>• Ya no interfieren con el juego</p>
-              <p>• Accesibles en todo momento</p>
-              <p>• Botón inicio recarga la página completamente</p>
-              <p>• Pausa real sin reiniciar el juego</p>
+            <div className="border-t pt-3 mb-3" style={{ borderColor: COLORS.UI_BORDER }}>
+              <p className="mb-2 text-xs sm:text-sm font-bold text-amber-400">🧪 BOTONES DE PRUEBA (CON COOLDOWN):</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 sm:gap-2">
+                {[
+                  { cmd: "fuego", icon: "🔥", color: "#FF3D00" },
+                  { cmd: "luz", icon: "💡", color: "#FFEB3B" },
+                  { cmd: "escudo", icon: "🛡️", color: "#00BCD4" },
+                  { cmd: "curar", icon: "💚", color: "#4CAF50" },
+                  { cmd: "saltar", icon: "🚀", color: "#2196F3" },
+                  { cmd: "atrás", icon: "⬅️", color: "#FFB300" },
+                  { cmd: "adelante", icon: "➡️", color: "#FFB300" },
+                ].map(({ cmd, icon, color }) => (
+                  <button
+                    key={cmd}
+                    onClick={() => testSpell(cmd)}
+                    className="px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm font-bold rounded border hover:opacity-80 transition-all duration-200 transform hover:scale-105 shadow-lg"
+                    style={{
+                      backgroundColor: color,
+                      borderColor: COLORS.UI_BORDER,
+                      color: "#0D0D0D",
+                      boxShadow: `0 0 10px ${color}40`,
+                    }}
+                  >
+                    {icon} <span className="hidden sm:inline">{cmd.toUpperCase()}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="text-xs sm:text-sm space-y-3">
+              <div>
+                <p className="mb-2 font-bold text-amber-400">BESTIARIO - NIVEL {gameState.currentLevel}:</p>
+                {gameState.currentLevel === 1 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <p>🌳 Árbol Siniestro: Débil al FUEGO</p>
+                    <p>🟣 Slime Venenoso: Débil al FUEGO</p>
+                    <p>👻 Espíritu del Bosque: Débil a la LUZ</p>
+                  </div>
+                )}
+                {gameState.currentLevel === 2 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <p>💀 Esqueleto Guerrero: Débil a la LUZ</p>
+                    <p>🌫️ Espectro Siniestro: Débil a la LUZ</p>
+                    <p>🗿 Gólem de Piedra: Débil a la LUZ</p>
+                    <p>👑 Jefe Espectro: Débil a la LUZ (5 HP)</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="p-3 rounded bg-green-600/20 border border-green-500/30">
+                  <p className="font-bold text-green-400">✅ SISTEMA CORREGIDO:</p>
+                  <p>• Derrota por HP = 0 detectada</p>
+                  <p>• Derrota por maná insuficiente</p>
+                  <p>• Victoria al completar Nivel 2</p>
+                </div>
+
+                <div className="p-3 rounded bg-blue-600/20 border border-blue-500/30">
+                  <p className="font-bold text-blue-400">🔊 SONIDOS IMPLEMENTADOS:</p>
+                  <p>• Efectos para cada hechizo</p>
+                  <p>• Sonidos de impacto y muerte</p>
+                  <p>• Audio de daño al jugador</p>
+                </div>
+
+                <div className="p-3 rounded bg-purple-600/20 border border-purple-500/30">
+                  <p className="font-bold text-purple-400">🎤 VOZ MEJORADA:</p>
+                  <p>• Análisis de oraciones completas</p>
+                  <p>• Sistema de confianza avanzado</p>
+                  <p>• Múltiples palabras clave</p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded bg-amber-600/20 border border-amber-500/30">
+                <p className="font-bold text-amber-400">🎯 NIVEL 2 MEJORADO:</p>
+                <p>• Enemigos más fuertes (3-5 HP)</p>
+                <p>• Velocidad aumentada 67%</p>
+                <p>• Jefe final con 5 HP</p>
+                <p>• IA más agresiva</p>
+                <p>• Victoria completa implementada</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* CRITICAL: Defeat screen overlay - FIXED */}
+        {gameState.gameStatus === "defeated" && (
+          <div
+            className="fixed inset-0 flex flex-col items-center justify-center z-50"
+            style={{
+              background: `linear-gradient(135deg, ${COLORS.UI_BG}F8 0%, #8B0000F8 30%, #1A0F08F8 70%, ${COLORS.UI_BG}F8 100%)`,
+            }}
+          >
+            <div
+              className="text-center text-white p-8 rounded-xl border-2 max-w-2xl mx-4"
+              style={{ borderColor: "#FF4444" }}
+            >
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 text-red-400 animate-pulse">
+                💀 DERROTADO 💀
+              </h2>
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold mb-4 text-red-300">
+                  {gameState.defeatReason === "health" ? "⚔️ Caíste en Batalla" : "⚡ Sin Energía Mágica"}
+                </h3>
+                <p className="text-lg mb-4" style={{ color: COLORS.UI_TEXT }}>
+                  {gameState.defeatReason === "health"
+                    ? "Tu salud llegó a cero. Los enemigos han prevalecido sobre ti."
+                    : "Te quedaste sin maná suficiente para derrotar a los enemigos restantes."}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div className="bg-black/30 p-4 rounded border border-red-500/30">
+                  <h4 className="font-bold text-red-300 mb-2">📊 Estadísticas Finales</h4>
+                  <p>⏱️ Tiempo: {Math.floor(gameState.timeElapsed)}s</p>
+                  <p>🎯 Nivel Alcanzado: {gameState.currentLevel}</p>
+                  <p>👹 Enemigos Derrotados: {gameState.enemiesDefeated}</p>
+                  <p>✨ Hechizos Lanzados: {gameState.spellsCast}</p>
+                  <p>🏆 Puntuación: {gameState.score}</p>
+                </div>
+
+                <div className="bg-black/30 p-4 rounded border border-yellow-500/30">
+                  <h4 className="font-bold text-yellow-300 mb-2">💡 Consejos</h4>
+                  {gameState.defeatReason === "health" ? (
+                    <div className="text-xs space-y-1">
+                      <p>• Usa "ESCUDO" para protegerte</p>
+                      <p>• Mantén distancia de enemigos</p>
+                      <p>• Usa "CURAR" cuando tengas poca vida</p>
+                      <p>• Salta para evitar ataques</p>
+                    </div>
+                  ) : (
+                    <div className="text-xs space-y-1">
+                      <p>• Usa hechizos eficientes contra debilidades</p>
+                      <p>• FUEGO vs enemigos del bosque</p>
+                      <p>• LUZ vs enemigos espectrales</p>
+                      <p>• Planifica tu maná cuidadosamente</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg border-2 border-red-500 transition-all duration-200 transform hover:scale-105"
+                >
+                  🔄 Reintentar
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg border-2 border-gray-500 transition-all duration-200 transform hover:scale-105"
+                >
+                  🏠 Menú Principal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CRITICAL: Victory screen overlay - FIXED */}
+        {gameState.gameStatus === "victory" && (
+          <div
+            className="fixed inset-0 flex flex-col items-center justify-center z-50"
+            style={{
+              background: `linear-gradient(135deg, ${COLORS.UI_BG}F8 0%, #FFD700F8 20%, #00FF00F8 40%, #FFD700F8 60%, ${COLORS.UI_BG}F8 100%)`,
+            }}
+          >
+            <div
+              className="text-center text-white p-8 rounded-xl border-2 max-w-3xl mx-4"
+              style={{ borderColor: "#FFD700" }}
+            >
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 text-yellow-400 animate-bounce">
+                🎉 ¡GANASTE! 🎉
+              </h2>
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold mb-4 text-green-300">⚡ ¡Maestro Hechicero Supremo! ⚡</h3>
+                <p className="text-lg mb-4" style={{ color: COLORS.UI_TEXT }}>
+                  Has completado todos los niveles y dominado el arte de la magia vocal. ¡La oscuridad ha sido vencida
+                  por tu poder!
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-sm">
+                <div className="bg-black/30 p-4 rounded border border-green-500/30">
+                  <h4 className="font-bold text-green-300 mb-2">📊 Estadísticas Finales</h4>
+                  <p>⏱️ Tiempo Total: {Math.floor(gameState.timeElapsed)}s</p>
+                  <p>🎯 Niveles Completados: {gameState.currentLevel}</p>
+                  <p>👹 Enemigos Derrotados: {gameState.enemiesDefeated}</p>
+                  <p>✨ Hechizos Lanzados: {gameState.spellsCast}</p>
+                </div>
+
+                <div className="bg-black/30 p-4 rounded border border-yellow-500/30">
+                  <h4 className="font-bold text-yellow-300 mb-2">🏆 Puntuación</h4>
+                  <p>🎯 Puntos Base: {gameState.score}</p>
+                  <p>❤️ Bonus Salud: +{gameState.health * 10}</p>
+                  <p>⚡ Bonus Maná: +{gameState.mana * 5}</p>
+                  <p className="font-bold text-yellow-400 text-lg">
+                    🏆 Total: {gameState.score + gameState.health * 10 + gameState.mana * 5}
+                  </p>
+                </div>
+
+                <div className="bg-black/30 p-4 rounded border border-purple-500/30">
+                  <h4 className="font-bold text-purple-300 mb-2">🎖️ Clasificación</h4>
+                  {(() => {
+                    const efficiency =
+                      gameState.spellsCast > 0 ? (gameState.enemiesDefeated / gameState.spellsCast) * 100 : 0
+                    const timeBonus = gameState.timeElapsed < 300
+
+                    if (efficiency >= 80 && timeBonus) {
+                      return <p className="text-yellow-400 font-bold">🌟 Maestro Supremo</p>
+                    } else if (efficiency >= 60) {
+                      return <p className="text-green-400 font-bold">⚡ Maestro Hechicero</p>
+                    } else if (efficiency >= 40) {
+                      return <p className="text-blue-400 font-bold">🔮 Hechicero Experto</p>
+                    } else if (efficiency >= 20) {
+                      return <p className="text-purple-400 font-bold">✨ Hechicero Competente</p>
+                    } else {
+                      return <p className="text-gray-400">🎓 Aprendiz</p>
+                    }
+                  })()}
+                  <p className="text-xs mt-2">
+                    Eficiencia:{" "}
+                    {gameState.spellsCast > 0
+                      ? Math.round((gameState.enemiesDefeated / gameState.spellsCast) * 100)
+                      : 0}
+                    %
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6 p-4 bg-gradient-to-r from-yellow-600/20 to-green-600/20 rounded-lg border border-yellow-500/30">
+                <h4 className="font-bold text-yellow-300 mb-2">🎊 ¡Logros Desbloqueados!</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p>🏆 Completar Todos los Niveles</p>
+                  <p>⚔️ Derrotar Todos los Enemigos</p>
+                  {gameState.health > 50 && <p>❤️ Superviviente (50+ HP)</p>}
+                  {gameState.mana > 30 && <p>⚡ Conservador de Maná (30+ MP)</p>}
+                  {gameState.timeElapsed < 300 && <p>⚡ Velocista (&lt;5 min)</p>}
+                  {gameState.spellsCast < 50 && <p>🎯 Eficiente (&lt;50 hechizos)</p>}
+                </div>
+              </div>
+
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg border-2 border-green-500 transition-all duration-200 transform hover:scale-105"
+                >
+                  🔄 Jugar de Nuevo
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-lg border-2 border-yellow-500 transition-all duration-200 transform hover:scale-105"
+                >
+                  🏠 Menú Principal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
